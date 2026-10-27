@@ -1,0 +1,16 @@
+You are building the project specified in @INSTRUCTIONS.md. That file is the single source of truth.
+
+Hard rules:
+- Never change decisions in INSTRUCTIONS.md (stack, schema, API order, error codes, save format). If something seems wrong or impossible, STOP and ask me before deviating.
+- The server database clock is the only authoritative time. Never use client time for any decision.
+- Fail closed: no silent fallbacks, no offline sessions, no swallowed errors.
+- Never store raw device tokens, never log secrets/cookies/passwords.
+- Use the Node runtime for API routes. Use the Neon WebSocket pool driver for any transaction.
+- Never rely on middleware alone for auth. Every route re-verifies.
+- Next.js 15: cookies() and headers() are async. Check current docs for Drizzle, Neon, jose, and Next before using any API; do not guess signatures.
+- Work on ONE phase at a time. When finished, list what you did, what you did not do, and how to verify it. Do not start the next phase.
+- TypeScript strict mode, no `any`, validate all inputs with zod.
+---
+description: Project rules for the mystery game
+alwaysApply: true
+---
