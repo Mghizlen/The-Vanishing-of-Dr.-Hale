@@ -2,6 +2,8 @@
 
 An illustrated browser mystery game where the database clock controls every timed session. The client is untrusted: expiry, cooldowns, saves, hints, and scores are verified server-side.
 
+Production: https://vanishing-dr-hale.vercel.app
+
 ## Tech stack
 
 - Next.js 15 App Router, React 19, TypeScript, Tailwind CSS
