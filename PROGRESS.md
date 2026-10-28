@@ -5,10 +5,10 @@
 - Phase D: guards, session API, seeds, and 18/18 session checks
 
 ## In progress
-- Final checks and README
+- Complete
 
 ## Remaining
-- Final checks (skip F / Vercel deploy)
+- Manual Vercel deployment and production/browser-only acceptance checks
 
 ## Decisions
 - `lib/session/` contains HTTP-adjacent session helpers: summaries and device-cookie gates.
@@ -17,4 +17,5 @@
 - Puzzle complexity will stay intentionally small while preserving server-side rules and all five levels.
 
 ## Known gaps
-- Deployment and production-only acceptance checks remain manual.
+- S10 production test and section 12.6 browser UI checks were not executable against a deployed URL.
+- Art is CSS/SVG-style scene geometry rather than optimized image assets.
