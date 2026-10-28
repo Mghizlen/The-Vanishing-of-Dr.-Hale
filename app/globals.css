@@ -64,3 +64,4 @@ input { border: 1px solid #bcae94; border-radius: 0.5rem; padding: 0.7rem; }
 .modal { display: grid; gap: 0.6rem; max-width: 30rem; width: 100%; }.modal h2 { font-family: Georgia, serif; }.secondary { background: #d8d1c3; }
 .spin { animation: spin 1s linear infinite; }@keyframes spin { to { transform: rotate(360deg); } }@keyframes pulse { 50% { transform: scale(1.04); } }
 @media (max-width: 600px) { .game-header, .hud { align-items: flex-start; flex-wrap: wrap; }.hud button { flex: 1; }.stage-wrap { margin-top: 0.5rem; } }
+@media (max-width: 420px) { .game-shell { padding: 0.65rem; }.hud { gap: 0.45rem; }.hud button { font-size: 0.78rem; padding: 0.6rem; }.hotspot { padding: 0.5rem; } }
