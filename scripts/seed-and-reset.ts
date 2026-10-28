@@ -5,16 +5,20 @@
  *   npx tsx scripts/seed-and-reset.ts create-user <username> <password>
  *   npx tsx scripts/seed-and-reset.ts clear-cooldown <username>
  *   npx tsx scripts/seed-and-reset.ts end-session <username>
+ *   npx tsx scripts/seed-and-reset.ts expire-session <username>
+ *   npx tsx scripts/seed-and-reset.ts set-solved <username>
  */
 
 import { config as loadEnv } from "dotenv";
 import { hash } from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
 import * as schema from "../lib/db/schema";
+import { levelFromKey } from "../lib/game/level-config";
+import { parseSaveState, requiredPuzzleIds } from "../lib/game/save-schema";
 
 loadEnv({ path: ".env.local" });
 
@@ -126,11 +130,118 @@ async function endSession(username: string) {
       .update(schema.gameSessions)
       .set({
         status: "abandoned",
-        endedAt: new Date().toISOString(),
+        endedAt: sql`now()`,
       })
       .where(eq(schema.gameSessions.id, active.id));
 
-    console.log(`Ended active session ${active.id} for "${user.username}".`);
+    console.log(`Ended active session for "${user.username}".`);
+  } finally {
+    await pool.end();
+  }
+}
+
+async function expireSession(username: string) {
+  const pool = getPool();
+  const db = drizzle(pool, { schema });
+
+  try {
+    const user = await findUserByUsername(db, username);
+    if (!user) {
+      throw new Error(`User not found: ${username}`);
+    }
+
+    const [active] = await db
+      .select()
+      .from(schema.gameSessions)
+      .where(
+        and(
+          eq(schema.gameSessions.userId, user.id),
+          eq(schema.gameSessions.status, "active"),
+        ),
+      )
+      .limit(1);
+
+    if (!active) {
+      throw new Error(`No active session for "${user.username}".`);
+    }
+
+    await db
+      .update(schema.gameSessions)
+      .set({
+        expiresAt: sql`now() - interval '1 second'`,
+      })
+      .where(eq(schema.gameSessions.id, active.id));
+
+    console.log(`Moved expires_at into the past for "${user.username}".`);
+  } finally {
+    await pool.end();
+  }
+}
+
+async function setSolved(username: string) {
+  const pool = getPool();
+  const db = drizzle(pool, { schema });
+
+  try {
+    const user = await findUserByUsername(db, username);
+    if (!user) {
+      throw new Error(`User not found: ${username}`);
+    }
+
+    const [active] = await db
+      .select()
+      .from(schema.gameSessions)
+      .where(
+        and(
+          eq(schema.gameSessions.userId, user.id),
+          eq(schema.gameSessions.status, "active"),
+        ),
+      )
+      .limit(1);
+
+    if (!active) {
+      throw new Error(`No active session for "${user.username}".`);
+    }
+
+    const level = levelFromKey(active.durationKey);
+    if (!level) {
+      throw new Error("Unknown duration key on session.");
+    }
+
+    const [save] = await db
+      .select()
+      .from(schema.saveStates)
+      .where(eq(schema.saveStates.sessionId, active.id))
+      .limit(1);
+
+    if (!save) {
+      throw new Error("No save state for the active session.");
+    }
+
+    const parsed = parseSaveState(save.stateJson);
+    const next = parsed
+      ? { ...parsed, solvedPuzzles: requiredPuzzleIds(level) }
+      : {
+          schemaVersion: "1.0" as const,
+          sessionId: active.id,
+          duration: Math.round(active.durationSeconds / 60),
+          authoritativeExpiry: active.expiresAt,
+          currentStage: 1,
+          inventory: [] as string[],
+          inspectedObjects: [] as string[],
+          solvedPuzzles: requiredPuzzleIds(level),
+          hintCount: 0,
+        };
+
+    await db
+      .update(schema.saveStates)
+      .set({
+        stateJson: next,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(schema.saveStates.sessionId, active.id));
+
+    console.log(`Marked required puzzles solved for "${user.username}".`);
   } finally {
     await pool.end();
   }
@@ -166,9 +277,25 @@ async function main() {
       await endSession(username);
       break;
     }
+    case "expire-session": {
+      const [username] = args;
+      if (!username) {
+        throw new Error("Usage: expire-session <username>");
+      }
+      await expireSession(username);
+      break;
+    }
+    case "set-solved": {
+      const [username] = args;
+      if (!username) {
+        throw new Error("Usage: set-solved <username>");
+      }
+      await setSolved(username);
+      break;
+    }
     default:
       throw new Error(
-        "Unknown command. Use: create-user | clear-cooldown | end-session",
+        "Unknown command. Use: create-user | clear-cooldown | end-session | expire-session | set-solved",
       );
   }
 }

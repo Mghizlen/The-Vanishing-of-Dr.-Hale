@@ -8,7 +8,7 @@ import { db } from "@/lib/db/client";
 import { devices, users } from "@/lib/db/schema";
 import { pgErrorCode } from "@/lib/api/errors";
 
-function maxDevices(): number {
+export function getMaxDevices(): number {
   const raw = process.env.MAX_DEVICES;
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
@@ -18,9 +18,17 @@ export function hashDeviceToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
 }
 
-export async function ensureDeviceToken(): Promise<string> {
+export async function readExistingDeviceToken(): Promise<string | undefined> {
   const existing = await readDeviceCookie();
   if (existing && existing.length > 0) {
+    return existing;
+  }
+  return undefined;
+}
+
+export async function ensureDeviceToken(): Promise<string> {
+  const existing = await readExistingDeviceToken();
+  if (existing) {
     return existing;
   }
 
@@ -38,7 +46,7 @@ export async function tryRegisterDevice(
   rawToken: string,
 ): Promise<void> {
   const tokenHash = hashDeviceToken(rawToken);
-  const limit = maxDevices();
+  const limit = getMaxDevices();
 
   try {
     await db.transaction(async (tx) => {

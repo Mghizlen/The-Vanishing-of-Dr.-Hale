@@ -8,6 +8,13 @@ export const ErrorCode = {
   ORIGIN_MISMATCH: "ORIGIN_MISMATCH",
   RATE_LIMITED: "RATE_LIMITED",
   SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
+  INVALID_DURATION: "INVALID_DURATION",
+  COOLDOWN_ACTIVE: "COOLDOWN_ACTIVE",
+  DEVICE_LIMIT: "DEVICE_LIMIT",
+  DEVICE_MISSING: "DEVICE_MISSING",
+  ACTIVE_SESSION_EXISTS: "ACTIVE_SESSION_EXISTS",
+  SESSION_EXPIRED: "SESSION_EXPIRED",
+  NOT_COMPLETE: "NOT_COMPLETE",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -20,12 +27,27 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   ORIGIN_MISMATCH: 403,
   RATE_LIMITED: 429,
   SERVICE_UNAVAILABLE: 503,
+  INVALID_DURATION: 400,
+  COOLDOWN_ACTIVE: 423,
+  DEVICE_LIMIT: 403,
+  DEVICE_MISSING: 403,
+  ACTIVE_SESSION_EXISTS: 409,
+  SESSION_EXPIRED: 410,
+  NOT_COMPLETE: 422,
 };
 
 export type ApiErrorBody = {
   code: ErrorCode;
   message: string;
   retryAfterSeconds?: number;
+  cooldownUntil?: string | null;
+  reason?: string | null;
+  sessionId?: string;
+  duration?: number;
+  startedAt?: string;
+  authoritativeExpiry?: string;
+  status?: string;
+  maxDevices?: number;
 };
 
 export class ApiError extends Error {
