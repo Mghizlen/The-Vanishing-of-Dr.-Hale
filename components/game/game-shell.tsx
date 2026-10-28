@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Backpack, Clock3, Lightbulb, RefreshCw, ShieldAlert } from "lucide-react";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 type View = "booting" | "loggedOut" | "lobby" | "starting" | "playing" | "cooldown" | "device" | "expired" | "completed" | "fatal";
 type Level = { key: string; durationMinutes: number; stages: number; puzzleCount: number; maxHints: number };
@@ -40,7 +40,26 @@ export default function GameShell({ initialView }: { initialView: "lobby" | "pla
   const [selectedPuzzle, setSelectedPuzzle] = useState<number | null>(null);
   const [hint, setHint] = useState("");
   const [sync, setSync] = useState("saved");
+  const [displayedRemaining, setDisplayedRemaining] = useState(0);
+  const expiryCheckInFlight = useRef(false);
   const patch = useCallback((data: Partial<State>) => dispatch({ type: "patch", ...data }), []);
+
+  const updateDisplayedRemaining = useCallback(() => {
+    if (!state.session) {
+      setDisplayedRemaining(0);
+      return 0;
+    }
+    const remaining = Math.max(
+      0,
+      Math.ceil(
+        (Date.parse(state.session.authoritativeExpiry) -
+          (Date.now() + state.serverOffset)) /
+          1000,
+      ),
+    );
+    setDisplayedRemaining(remaining);
+    return remaining;
+  }, [state.serverOffset, state.session]);
 
   const request = useCallback(async <T,>(path: string, init?: RequestInit): Promise<{ data: T; serverNow: string }> => {
     const response = await fetch(path, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
@@ -55,12 +74,49 @@ export default function GameShell({ initialView }: { initialView: "lobby" | "pla
       const me = await fetch("/api/auth/me"); if (!me.ok) { patch({ view: "loggedOut" }); return; }
       const meBody = await me.json() as { data?: { username?: string } };
       const status = await request<StatusData>("/api/session/status");
-      patch({ username: meBody.data?.username ?? "", view: status.data.state === "active" ? "playing" : status.data.state === "cooldown" ? "cooldown" : "lobby", session: status.data.session ?? null, cooldownUntil: status.data.cooldownUntil ?? null, reason: status.data.reason ?? null, serverOffset: Date.parse(status.serverNow) - Date.now() });
-      if (status.data.state === "active") { const save = await request<StateData>("/api/state"); patch({ save: save.data.state, revision: save.data.revision, session: save.data.session }); }
+      const statusOffset = Date.parse(status.serverNow) - Date.now();
+      patch({ username: meBody.data?.username ?? "", view: status.data.state === "active" ? "playing" : status.data.state === "cooldown" ? "cooldown" : "lobby", session: status.data.session ?? null, cooldownUntil: status.data.cooldownUntil ?? null, reason: status.data.reason ?? null, serverOffset: statusOffset });
+      if (status.data.state === "active") {
+        const save = await request<StateData>("/api/state");
+        patch({ save: save.data.state, revision: save.data.revision, session: save.data.session, serverOffset: Date.parse(save.serverNow) - Date.now() });
+      }
     } catch (error) { patch({ view: "fatal", message: error instanceof Error ? error.message : "Service unavailable." }); }
   }, [patch, request]);
   useEffect(() => { void boot(); }, [boot]);
   useEffect(() => { if (state.view !== "playing") return; const timer = setInterval(() => { void boot(); }, 30000); return () => clearInterval(timer); }, [boot, state.view]);
+  useEffect(() => {
+    if (state.view !== "playing" || !state.session) return;
+    let zeroHandled = false;
+    const tick = () => {
+      const remaining = updateDisplayedRemaining();
+      if (remaining === 0 && !zeroHandled && !expiryCheckInFlight.current) {
+        zeroHandled = true;
+        expiryCheckInFlight.current = true;
+        void request<StatusData>("/api/session/status")
+          .then((status) => {
+            patch({
+              serverOffset: Date.parse(status.serverNow) - Date.now(),
+              cooldownUntil: status.data.cooldownUntil ?? null,
+              reason: status.data.reason ?? null,
+            });
+            if (status.data.state !== "active") patch({ view: "expired" });
+            else zeroHandled = false;
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            expiryCheckInFlight.current = false;
+          });
+      }
+    };
+    const timer = setInterval(tick, 250);
+    const onVisibilityChange = () => tick();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    tick();
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [patch, request, state.session, state.view, updateDisplayedRemaining]);
 
   async function start(duration: number) {
     patch({ view: "starting", message: "" });
@@ -110,7 +166,7 @@ export default function GameShell({ initialView }: { initialView: "lobby" | "pla
   if (state.view === "expired") return <main className="screen"><Clock3 size={48} /><h1>Time&apos;s up</h1><button onClick={boot}>Continue</button></main>;
   if (state.view === "completed") return <main className="screen"><p className="eyebrow">CASE CLOSED</p><h1>Dr. Hale&apos;s trail continues</h1><p>Server-computed score: <strong>{state.score ?? 0}</strong></p><a className="button" href="/lobby">Return to lobby</a></main>;
   if (!state.save || !state.session) return <main className="screen"><h1>No active case</h1><button onClick={boot}>Return</button></main>;
-  const remaining = Math.max(0, Math.ceil((Date.parse(state.session.authoritativeExpiry) - (Date.now() + state.serverOffset)) / 1000));
+  const remaining = displayedRemaining;
   const stage = Math.min(5, state.save.currentStage);
   const required = state.session.duration === 10 ? 2 : state.session.duration === 15 ? 3 : state.session.duration === 30 ? 4 : state.session.duration === 60 ? 5 : 6;
   return <main className="game-shell"><header className="game-header"><div><p className="eyebrow">THE VANISHING OF DR. HALE</p><h1>{scenes[stage - 1]}</h1></div><div className={`countdown ${remaining < 60 ? "danger" : remaining < 300 ? "warn" : ""}`}><Clock3 size={18} /> {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</div></header><div className="stage-wrap"><motion.section className="stage" key={stage} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="scene-title">{scenes[stage - 1]}</div>{hotspots.slice((stage - 1) * 2, stage * 2).map((name, offset) => <button className="hotspot" style={{ left: `${18 + offset * 45}%`, top: `${35 + (offset % 2) * 22}%` }} key={name} onClick={() => void inspectAndOpen((stage - 1) * 2 + offset)} aria-label={`Inspect ${name}`}>{name}</button>)}</motion.section></div><footer className="hud"><span><Backpack size={17} /> {state.save.inventory.length} items</span><span className="sync">{sync}</span><button onClick={useHint}><Lightbulb size={17} /> Hint ({state.save.hintCount})</button>{state.save.solvedPuzzles.length >= required && <button onClick={() => void complete()}>Close case</button>}<button onClick={() => { if (window.confirm("Abandon this case? Cooldown will apply.")) void request("/api/session/abandon", { method: "POST" }).then(() => patch({ view: "cooldown" })); }}>Abandon</button></footer>{hint && <div className="hint card">{hint}</div>}<AnimatePresence>{selectedPuzzle !== null && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="card modal" initial={{ y: 30 }} animate={{ y: 0 }}><h2>{puzzles[selectedPuzzle][1]}</h2><p>Choose the evidence-supported answer.</p>{puzzles[selectedPuzzle][2].map((option) => <button key={option} onClick={() => void solve(selectedPuzzle, option)}>{option}</button>)}<button className="secondary" onClick={() => setSelectedPuzzle(null)}>Close</button></motion.div></motion.div>}</AnimatePresence></main>;
