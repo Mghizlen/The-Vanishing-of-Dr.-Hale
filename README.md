@@ -4,6 +4,26 @@ An illustrated browser mystery game where the database clock controls every time
 
 Production: https://vanishing-dr-hale.vercel.app
 
+## Frontend art assets
+
+Place optional WebP files in `public/scenes` and `public/items`. Missing files automatically use the built-in CSS fallback scene or Lucide item icon.
+
+### Scene files
+
+| File | Scene description and hotspot placement |
+|---|---|
+| `public/scenes/study.webp` | Dr. Hale's study: desk calendar at 8%, 58% (18% x 24%), drawer at 28%, 63% (18% x 18%), torn letter at 54%, 65% (16% x 15%), wall portrait at 73%, 12% (17% x 35%). |
+| `public/scenes/library.webp` | Library with tall shelves and a globe: bookshelf at 10%, 20% (35% x 65%), globe at 55%, 56% (18% x 25%). |
+| `public/scenes/observatory-dome.webp` | Observatory dome with telescope and star chart: telescope at 12%, 42% (38% x 35%), star chart at 62%, 15% (25% x 30%). |
+| `public/scenes/cellar.webp` | Shadowy cellar with crates and a locked chest: locked chest at 55%, 58% (28% x 25%), crates at 8%, 58% (30% x 28%). |
+| `public/scenes/rooftop.webp` | Rooftop investigation board with footprints: final board at 22%, 14% (56% x 55%), footprints at 8%, 75% (26% x 15%). |
+
+### Item files
+
+Provide these exact filenames in `public/items`: `item_brass_key.webp`, `item_letter_full.webp`, `item_observatory_pass.webp`, `item_lens.webp`, `item_cellar_map.webp`, and `item_journal.webp`.
+
+Use `/play?debug=hotspots` during local development to show hotspot rectangles and log click percentages. Debug mode is disabled in production. The play screen preloads the scene files, prioritizes the current scene, supports `prefers-reduced-motion`, and keeps a CSS/SVG-style fallback when art is absent.
+
 ## Tech stack
 
 - Next.js 15 App Router, React 19, TypeScript, Tailwind CSS
