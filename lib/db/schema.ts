@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  check,
   index,
   integer,
   jsonb,
@@ -27,7 +28,13 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [unique("users_username_unique").on(table.username)],
+  (table) => [
+    unique("users_username_unique").on(table.username),
+    check(
+      "users_username_lowercase",
+      sql`${table.username} = lower(${table.username})`,
+    ),
+  ],
 );
 
 export const devices = pgTable(

@@ -18,8 +18,10 @@ const pool = new Pool({
   max: 5,
 });
 
-pool.on("error", (err) => {
-  console.error("Unexpected Neon pool error", err);
+pool.on("error", (error: Error) => {
+  if (error) {
+    console.error("Database pool error");
+  }
 });
 
 export const db = drizzle(pool, { schema });

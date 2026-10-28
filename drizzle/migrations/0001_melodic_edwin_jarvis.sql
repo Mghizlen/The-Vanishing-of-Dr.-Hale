@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD CONSTRAINT "users_username_lowercase" CHECK ("users"."username" = lower("users"."username"));
