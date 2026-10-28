@@ -15,6 +15,9 @@ export const ErrorCode = {
   ACTIVE_SESSION_EXISTS: "ACTIVE_SESSION_EXISTS",
   SESSION_EXPIRED: "SESSION_EXPIRED",
   NOT_COMPLETE: "NOT_COMPLETE",
+  SAVE_INVALID: "SAVE_INVALID",
+  SAVE_CONFLICT: "SAVE_CONFLICT",
+  HINT_LIMIT: "HINT_LIMIT",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -34,6 +37,9 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   ACTIVE_SESSION_EXISTS: 409,
   SESSION_EXPIRED: 410,
   NOT_COMPLETE: 422,
+  SAVE_INVALID: 422,
+  SAVE_CONFLICT: 409,
+  HINT_LIMIT: 422,
 };
 
 export type ApiErrorBody = {
@@ -48,6 +54,9 @@ export type ApiErrorBody = {
   authoritativeExpiry?: string;
   status?: string;
   maxDevices?: number;
+  revision?: number;
+  state?: unknown;
+  serverState?: unknown;
 };
 
 export class ApiError extends Error {

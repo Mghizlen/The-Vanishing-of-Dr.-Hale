@@ -1,23 +1,11 @@
 import { z } from "zod";
 
-import {
-  type LevelConfig,
-  durationMinutesFromSeconds,
-} from "@/lib/game/level-config";
+import { type LevelConfig, durationMinutesFromSeconds } from "@/lib/game/level-config";
+import { CONTENT_OBJECT_IDS, CONTENT_ITEM_IDS, CONTENT_PUZZLE_IDS } from "@/lib/game/content-config";
 
 /**
- * PHASE_H_PLACEHOLDER — replace with real puzzle IDs from content-config.
- * Demo uses 1–2, detective 1–3, … expert 1–6.
+ * The save document contains IDs only. Content and solutions remain server-only.
  */
-export const PLACEHOLDER_PUZZLE_IDS = [
-  "puz_ph_1",
-  "puz_ph_2",
-  "puz_ph_3",
-  "puz_ph_4",
-  "puz_ph_5",
-  "puz_ph_6",
-] as const;
-
 export const saveStateSchema = z.object({
   schemaVersion: z.literal("1.0"),
   sessionId: z.string(),
@@ -33,7 +21,15 @@ export const saveStateSchema = z.object({
 export type SaveStateV1 = z.output<typeof saveStateSchema>;
 
 export function requiredPuzzleIds(level: LevelConfig): string[] {
-  return PLACEHOLDER_PUZZLE_IDS.slice(0, level.puzzleCount);
+  return CONTENT_PUZZLE_IDS.slice(0, level.puzzleCount).map((puzzle) => puzzle.id);
+}
+
+export function isKnownObjectId(id: string): boolean {
+  return CONTENT_OBJECT_IDS.has(id);
+}
+
+export function isKnownItemId(id: string): boolean {
+  return CONTENT_ITEM_IDS.has(id);
 }
 
 export function buildInitialState(input: {

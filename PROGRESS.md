@@ -5,10 +5,10 @@
 - Phase D: guards, session API, seeds, and 18/18 session checks
 
 ## In progress
-- Phase E: save state and hint API
+- Phase G: frontend shell and client state machine
 
 ## Remaining
-- E, G, H, I, README, final checks (skip F / Vercel deploy)
+- G, H, I, README, final checks (skip F / Vercel deploy)
 
 ## Decisions
 - `lib/session/` contains HTTP-adjacent session helpers: summaries and device-cookie gates.
@@ -17,4 +17,4 @@
 - Puzzle complexity will stay intentionally small while preserving server-side rules and all five levels.
 
 ## Known gaps
-- State API, frontend, game content, README, and final acceptance runs remain.
+- Frontend, README, and final acceptance runs remain.
